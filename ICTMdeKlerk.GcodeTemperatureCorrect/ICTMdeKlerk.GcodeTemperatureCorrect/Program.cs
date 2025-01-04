@@ -7,7 +7,7 @@ namespace ICTMdeKlerk.GcodeTemperatureCorrect
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("The file will be read and temperatures will adjusted accordingly.");            
+            Console.WriteLine("The file will be read and temperatures will be adjusted accordingly.");            
             
             var options = GetCommandLineOptions(args);
 
