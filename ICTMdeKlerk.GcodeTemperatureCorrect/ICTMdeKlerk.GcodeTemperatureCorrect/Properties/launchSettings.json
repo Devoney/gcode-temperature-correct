@@ -1,8 +1,8 @@
 {
   "profiles": {
     "ICTMdeKlerk.GcodeTemperatureCorrect": {
-      "commandName": "Project",
-      "commandLineArgs": "-f \"C:\\Users\\Mike\\Documents\\SJ1_∅70mm_30mm-height_3mm-screws.gcode\" --t0 205 --t1 235"
+      "commandName": "Project"
+      
     }
   }
 }

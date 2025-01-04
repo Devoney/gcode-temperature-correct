@@ -49,7 +49,29 @@ namespace ICTMdeKlerk.GcodeTemperatureCorrect
 
             if (options == null)
             {
-                throw new InvalidOperationException("Commandline options should have been parsed by now.");
+                options = new Options();
+            }
+
+            while (string.IsNullOrWhiteSpace(options.File))
+            {
+                Console.WriteLine("Specify the path to the gcode file:");
+                options.File = Console.ReadLine();
+            }
+
+            while (options.TemperatureFirstExtruder == default)
+            {
+                Console.WriteLine("Specify the temperature to use for the first extruder (whole numbers, integers)");
+                var input = Console.ReadLine();
+                int.TryParse(input, out int temperature);
+                options.TemperatureFirstExtruder = temperature;
+            }
+
+            while (options.TemperatureSecondExtruder == default)
+            {
+                Console.WriteLine("Specify the temperature to use for the second extruder (whole numbers, integers)");
+                var input = Console.ReadLine();
+                int.TryParse(input, out int temperature);
+                options.TemperatureSecondExtruder = temperature;
             }
 
             return options;
