@@ -13,17 +13,35 @@ namespace ICTMdeKlerk.GcodeTemperatureCorrect
 
             var gcodes = File.ReadAllLines(options.File);
 
+            var temperatureSetForExtruder = new Dictionary<Extruder, bool>
+            {
+                { Extruder.First, false },
+                { Extruder.Second, false },
+            };
+
             Extruder globalExtruder = Extruder.Undetermined;
 
             var resultingGcode = new List<string>();
             for (var i = 0; i < gcodes.Length; i++)
             {
+                var skipLine = false;
                 var gcode = gcodes[i].Trim();
 
                 DetermineGlobalExtruder(gcode, ref globalExtruder);
 
                 if (IsTemperatureLine(gcode))
                 {
+                    var extruder = GetApplicableExtruder(globalExtruder, gcode);
+                    if (options.SkipWaitingForTemperatureAfterInitialTemperature == true && temperatureSetForExtruder[extruder] && !gcode.Contains(" S0"))
+                    {
+                        skipLine = true;
+                    }
+
+                    if (gcode.Contains(Constants.Temperature.SetAndWait))
+                    {
+                        temperatureSetForExtruder[extruder] = true;                        
+                    }
+
                     var desiredTemperature = GetDesiredTemperature(globalExtruder, gcode, options);
                     if (!gcode.Contains($" S{desiredTemperature}") && !gcode.Contains(" S0"))
                     {
@@ -33,7 +51,10 @@ namespace ICTMdeKlerk.GcodeTemperatureCorrect
                     }
                 }
 
-                resultingGcode.Add(gcode);
+                if (!skipLine)
+                {
+                    resultingGcode.Add(gcode);
+                }
             }
 
             string fullPath = WriteResultingGcodeToFile(options, resultingGcode);
@@ -74,6 +95,17 @@ namespace ICTMdeKlerk.GcodeTemperatureCorrect
                 options.TemperatureSecondExtruder = temperature;
             }
 
+            while (!options.SkipWaitingForTemperatureAfterInitialTemperature.HasValue)
+            {
+                Console.WriteLine("Speed up printing by only awaiting exact temperature for nozzles once at the beginning? y/n");
+                var answer = "";
+                while (answer != "y" && answer != "n")
+                {
+                    answer = Console.ReadKey().Key.ToString().ToLower();
+                    options.SkipWaitingForTemperatureAfterInitialTemperature = answer == "y";
+                }
+            }
+            
             return options;
         }
 
@@ -91,7 +123,7 @@ namespace ICTMdeKlerk.GcodeTemperatureCorrect
 
         public static bool IsTemperatureLine(string gcode)
         {
-            return gcode.StartsWith("M104") || gcode.StartsWith("M109");
+            return gcode.StartsWith(Constants.Temperature.SetAndContinue) || gcode.StartsWith(Constants.Temperature.SetAndWait);
         }
 
         public static string SetTemperature(string gcode, int temperature)
@@ -99,7 +131,7 @@ namespace ICTMdeKlerk.GcodeTemperatureCorrect
             return Regex.Replace(gcode, @"\sS[0-9]{3}", $" S{temperature}");
         }
 
-        public static int GetDesiredTemperature(Extruder extruder, string gcode, Options options)
+        public static Extruder GetApplicableExtruder(Extruder globalExtruder, string gcode)
         {
             var localExtruder = Extruder.Undetermined;
 
@@ -110,9 +142,10 @@ namespace ICTMdeKlerk.GcodeTemperatureCorrect
             else if (gcode.Contains($" {Constants.Extruders.Second} "))
             {
                 localExtruder = Extruder.Second;
-            } else
+            }
+            else
             {
-                localExtruder = extruder;
+                localExtruder = globalExtruder;
             }
 
             if (localExtruder == Extruder.Undetermined)
@@ -120,7 +153,19 @@ namespace ICTMdeKlerk.GcodeTemperatureCorrect
                 throw new InvalidOperationException("The extruder is not determined yet, cannot determine temperature.");
             }
 
-            if (localExtruder == Extruder.First)
+            return localExtruder;
+        }
+
+        public static int GetDesiredTemperature(Extruder globalExtruder, string gcode, Options options)
+        {
+            var applicableExtruder = GetApplicableExtruder(globalExtruder, gcode);
+
+            if (applicableExtruder == Extruder.Undetermined)
+            {
+                throw new InvalidOperationException("The extruder is not determined yet, cannot determine temperature.");
+            }
+
+            if (applicableExtruder == Extruder.First)
             {
                 return options.TemperatureFirstExtruder;
             }
